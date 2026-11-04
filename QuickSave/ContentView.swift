@@ -3,9 +3,11 @@ import AVKit
 
 struct ContentView: View {
     @StateObject private var engine = VideoDownloaderEngine.shared
+    @AppStorage("pc_server_ip") private var pcServerIP = "192.168.1.14:4545"
     @State private var inputURL = ""
     @State private var showingAlert = false
     @State private var alertMessage = ""
+    @State private var showingSettings = false
     @State private var selectedVideoURL: URL?
     
     var body: some View {
@@ -21,11 +23,22 @@ struct ContentView: View {
                             Image(systemName: "arrow.down.circle.fill")
                                 .font(.system(size: 32))
                                 .foregroundColor(.cyan)
-                            Text("Quick Save")
-                                .font(.system(size: 28, weight: .bold))
+                            Text("AT Downloader")
+                                .font(.system(size: 26, weight: .bold))
                                 .foregroundColor(.white)
+                            Spacer()
+                            Button(action: { showingSettings = true }) {
+                                Image(systemName: "gearshape.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(.gray)
+                                    .padding(8)
+                                    .background(Color(red: 0.12, green: 0.15, blue: 0.24))
+                                    .clipShape(Circle())
+                            }
                         }
-                        Text("Tải video sạch mọi nền tảng • 0% Quảng cáo")
+                        .padding(.horizontal)
+                        
+                        Text("Tải video sạch mọi nền tảng • Đồng bộ AT Download Manager")
                             .font(.system(size: 13))
                             .foregroundColor(.gray)
                     }
@@ -153,6 +166,41 @@ struct ContentView: View {
             .navigationBarHidden(true)
             .sheet(item: $selectedVideoURL) { url in
                 VideoPlayerSheet(url: url)
+            }
+            .sheet(isPresented: $showingSettings) {
+                ZStack {
+                    Color(red: 0.07, green: 0.09, blue: 0.15).ignoresSafeArea()
+                    VStack(alignment: .leading, spacing: 20) {
+                        HStack {
+                            Text("Cài Đặt Máy Chủ PC")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.white)
+                            Spacer()
+                            Button("Xong") { showingSettings = false }
+                                .foregroundColor(.cyan)
+                                .fontWeight(.semibold)
+                        }
+                        .padding(.top, 20)
+                        
+                        Text("Khi điện thoại cùng mạng Wi-Fi với máy tính, app sẽ tự động tải video chuẩn 1080p qua AT Download Manager trên PC mà không bị dính quảng cáo hay chặn bot.")
+                            .font(.system(size: 13))
+                            .foregroundColor(.gray)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Địa chỉ IP máy tính (Port 4545):")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.cyan)
+                            TextField("192.168.1.14:4545", text: $pcServerIP)
+                                .padding(12)
+                                .background(Color(red: 0.12, green: 0.15, blue: 0.24))
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding()
+                }
             }
             .alert(isPresented: $showingAlert) {
                 Alert(title: Text("Thông báo"), message: Text(alertMessage), dismissButton: .default(Text("OK")))

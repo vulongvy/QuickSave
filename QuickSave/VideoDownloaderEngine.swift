@@ -46,20 +46,60 @@ class VideoDownloaderEngine: ObservableObject {
             return
         }
         
-        // 2. Facebook (Reels / Video / fb.watch)
+        // 2. YouTube (Shorts / Video): Ưu tiên kết nối AT Download Manager Hub
+        if absoluteString.contains("youtube.com") || absoluteString.contains("youtu.be") {
+            downloadYouTube(url: url, completion: completion)
+            return
+        }
+        
+        // 3. Facebook (Reels / Video / fb.watch)
         if absoluteString.contains("facebook.com") || absoluteString.contains("fb.watch") {
             downloadFacebook(url: url, completion: completion)
             return
         }
         
-        // 3. Link file MP4 trực tiếp
+        // 4. Link file MP4 trực tiếp
         if absoluteString.hasSuffix(".mp4") || absoluteString.contains(".mp4?") {
             downloadDirectFile(url: url, title: "Video_\(Int(Date().timeIntervalSince1970))", completion: completion)
             return
         }
         
-        // 4. Đa nền tảng khác: YouTube, Instagram, X/Twitter...
+        // 5. Đa nền tảng khác: Instagram, X/Twitter...
         downloadUniversal(url: url, completion: completion)
+    }
+
+    // MARK: - YouTube Engine (Local ATDM Hub / Wi-Fi)
+    private func downloadYouTube(url: URL, completion: @escaping (Result<URL, Error>) -> Void) {
+        let serverHost = UserDefaults.standard.string(forKey: "pc_server_ip") ?? "192.168.1.14:4545"
+        let encodedTarget = url.absoluteString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let pcDownloadURLString = "http://\(serverHost)/download?url=\(encodedTarget)"
+        
+        guard let pcURL = URL(string: pcDownloadURLString),
+              let pingURL = URL(string: "http://\(serverHost)/status") else {
+            downloadUniversal(url: url, completion: completion)
+            return
+        }
+        
+        DispatchQueue.main.async {
+            self.statusMessage = "Đang kết nối AT Download Manager trên PC..."
+            self.progress = 0.25
+        }
+        
+        var pingReq = URLRequest(url: pingURL)
+        pingReq.timeoutInterval = 2.0
+        
+        URLSession.shared.dataTask(with: pingReq) { _, resp, _ in
+            if let httpResp = resp as? HTTPURLResponse, httpResp.statusCode == 200 {
+                DispatchQueue.main.async {
+                    self.statusMessage = "Đang tải video 1080p từ AT Download Manager PC..."
+                    self.progress = 0.5
+                }
+                self.downloadDirectFile(url: pcURL, title: "YouTube_\(Int(Date().timeIntervalSince1970))", completion: completion)
+            } else {
+                // Nếu PC tắt hoặc ra ngoài đường, thử bóc tách qua Universal API
+                self.downloadUniversal(url: url, completion: completion)
+            }
+        }.resume()
     }
     
     // MARK: - Facebook Engine
@@ -169,7 +209,7 @@ class VideoDownloaderEngine: ObservableObject {
             }
             
             // Nếu không lấy được URL tải hợp lệ, báo lỗi rõ ràng chứ KHÔNG tải nhầm trang HTML
-            let err = NSError(domain: "QuickSave", code: 404, userInfo: [NSLocalizedDescriptionKey: "Không thể giải mã luồng video này. Vui lòng thử lại!"])
+            let err = NSError(domain: "QuickSave", code: 404, userInfo: [NSLocalizedDescriptionKey: "Không thể giải mã video. Hãy đảm bảo máy tính đang mở AT Download Manager (cùng mạng Wi-Fi) để tự động tải chuẩn 1080p!"])
             DispatchQueue.main.async {
                 self.isDownloading = false
                 self.statusMessage = err.localizedDescription

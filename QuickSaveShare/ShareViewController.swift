@@ -38,7 +38,7 @@ class ShareViewController: UIViewController {
         
         // Title
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.text = "Quick Save"
+        titleLabel.text = "AT Downloader"
         titleLabel.font = UIFont.systemFont(ofSize: 18, weight: .bold)
         titleLabel.textColor = .white
         containerView.addSubview(titleLabel)
