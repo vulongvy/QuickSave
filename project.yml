@@ -21,7 +21,8 @@ targets:
     sources:
       - path: QuickSave
     settings:
-      PRODUCT_NAME: "Quick Save"
+      PRODUCT_NAME: "QuickSave"
+      PRODUCT_MODULE_NAME: "QuickSave"
       PRODUCT_BUNDLE_IDENTIFIER: com.quicksave.app
       INFOPLIST_FILE: QuickSave/Info.plist
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -36,7 +37,8 @@ targets:
       - path: QuickSaveShare
       - path: QuickSave/VideoDownloaderEngine.swift
     settings:
-      PRODUCT_NAME: "Quick Save"
+      PRODUCT_NAME: "QuickSaveShare"
+      PRODUCT_MODULE_NAME: "QuickSaveShare"
       PRODUCT_BUNDLE_IDENTIFIER: com.quicksave.app.share
       INFOPLIST_FILE: QuickSaveShare/Info.plist
       GENERATE_INFOPLIST_FILE: NO
