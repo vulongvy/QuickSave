@@ -161,9 +161,12 @@ class ShareViewController: UIViewController {
     
     private func finishWithError(_ message: String) {
         DispatchQueue.main.async {
+            self.iconImageView.image = UIImage(systemName: "exclamationmark.triangle.fill")
+            self.iconImageView.tintColor = .systemRed
             self.statusLabel.textColor = .systemRed
             self.statusLabel.text = message
             self.closeButton.setTitle("Đóng", for: .normal)
+            self.progressView.isHidden = true
         }
     }
 }

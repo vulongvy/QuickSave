@@ -40,20 +40,75 @@ class VideoDownloaderEngine: ObservableObject {
         
         let absoluteString = url.absoluteString.lowercased()
         
-        // 1. TikTok: Bóc tách trực tiếp không logo qua TikWM
+        // 1. TikTok: Bóc tách không logo qua TikWM
         if absoluteString.contains("tiktok.com") {
             downloadTikTok(url: url, completion: completion)
             return
         }
         
-        // 2. Link file MP4 trực tiếp
+        // 2. Facebook (Reels / Video / fb.watch)
+        if absoluteString.contains("facebook.com") || absoluteString.contains("fb.watch") {
+            downloadFacebook(url: url, completion: completion)
+            return
+        }
+        
+        // 3. Link file MP4 trực tiếp
         if absoluteString.hasSuffix(".mp4") || absoluteString.contains(".mp4?") {
             downloadDirectFile(url: url, title: "Video_\(Int(Date().timeIntervalSince1970))", completion: completion)
             return
         }
         
-        // 3. Đa nền tảng: YouTube, Facebook, Instagram, Twitter, Threads...
+        // 4. Đa nền tảng khác: YouTube, Instagram, X/Twitter...
         downloadUniversal(url: url, completion: completion)
+    }
+    
+    // MARK: - Facebook Engine
+    private func downloadFacebook(url: URL, completion: @escaping (Result<URL, Error>) -> Void) {
+        DispatchQueue.main.async {
+            self.statusMessage = "Đang bóc tách Facebook Reels..."
+            self.progress = 0.25
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 16_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.7 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
+        request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard let data = data, let html = String(data: data, encoding: .utf8) else {
+                self.downloadUniversal(url: url, completion: completion)
+                return
+            }
+            
+            let patterns = [
+                "browser_native_hd_url[\"']?\\s*:\\s*[\"'](https:[^\"']+)[\"']",
+                "browser_native_sd_url[\"']?\\s*:\\s*[\"'](https:[^\"']+)[\"']",
+                "playable_url_quality_hd[\"']?\\s*:\\s*[\"'](https:[^\"']+)[\"']",
+                "playable_url[\"']?\\s*:\\s*[\"'](https:[^\"']+)[\"']",
+                "\"(https:\\\\/\\\\/[^\"']+fbcdn\\.net[^\"']+\\.mp4[^\"']*)\"",
+                "property=[\"']og:video[\"']\\s+content=[\"'](https:[^\"']+)[\"']",
+                "property=[\"']og:video:secure_url[\"']\\s+content=[\"'](https:[^\"']+)[\"']"
+            ]
+            
+            for pattern in patterns {
+                if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+                   let match = regex.firstMatch(in: html, options: [], range: NSRange(location: 0, length: html.utf16.count)),
+                   let range = Range(match.range(at: 1), in: html) {
+                    
+                    var videoURLStr = String(html[range])
+                    videoURLStr = videoURLStr.replacingOccurrences(of: "\\/", with: "/")
+                    videoURLStr = videoURLStr.replacingOccurrences(of: "\\u0025", with: "%")
+                    videoURLStr = videoURLStr.replacingOccurrences(of: "&amp;", with: "&")
+                    
+                    if let directURL = URL(string: videoURLStr) {
+                        self.downloadDirectFile(url: directURL, title: "FB_Reels_\(Int(Date().timeIntervalSince1970))", completion: completion)
+                        return
+                    }
+                }
+            }
+            
+            // Nếu không tìm thấy trong HTML, chuyển sang Universal API
+            self.downloadUniversal(url: url, completion: completion)
+        }.resume()
     }
     
     // MARK: - TikTok Engine
@@ -73,13 +128,12 @@ class VideoDownloaderEngine: ObservableObject {
                 let title = dataDict["title"] as? String ?? "TikTok_Video"
                 self.downloadDirectFile(url: directURL, title: title, completion: completion)
             } else {
-                // Fallback nếu API tiktok bận
                 self.downloadUniversal(url: url, completion: completion)
             }
         }.resume()
     }
     
-    // MARK: - Universal Engine (Cobalt / yt-dlp)
+    // MARK: - Universal Engine (Cobalt)
     private func downloadUniversal(url: URL, completion: @escaping (Result<URL, Error>) -> Void) {
         DispatchQueue.main.async {
             self.statusMessage = "Đang bóc tách chất lượng cao..."
@@ -107,7 +161,6 @@ class VideoDownloaderEngine: ObservableObject {
             if let data = data,
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 
-                // Trường hợp 1: Trả về link download trực tiếp
                 if let directURLStr = json["url"] as? String, let downloadURL = URL(string: directURLStr) {
                     let title = json["filename"] as? String ?? "Video_\(Int(Date().timeIntervalSince1970))"
                     self.downloadDirectFile(url: downloadURL, title: title, completion: completion)
@@ -115,8 +168,13 @@ class VideoDownloaderEngine: ObservableObject {
                 }
             }
             
-            // Trường hợp 2: Thử tải trực tiếp từ URL gốc
-            self.downloadDirectFile(url: url, title: "Video_\(Int(Date().timeIntervalSince1970))", completion: completion)
+            // Nếu không lấy được URL tải hợp lệ, báo lỗi rõ ràng chứ KHÔNG tải nhầm trang HTML
+            let err = NSError(domain: "QuickSave", code: 404, userInfo: [NSLocalizedDescriptionKey: "Không thể giải mã luồng video này. Vui lòng thử lại!"])
+            DispatchQueue.main.async {
+                self.isDownloading = false
+                self.statusMessage = err.localizedDescription
+            }
+            completion(.failure(err))
         }.resume()
     }
     
@@ -131,7 +189,7 @@ class VideoDownloaderEngine: ObservableObject {
             if let error = error {
                 DispatchQueue.main.async {
                     self.isDownloading = false
-                    self.statusMessage = "Lỗi: \(error.localizedDescription)"
+                    self.statusMessage = "Lỗi tải: \(error.localizedDescription)"
                 }
                 completion(.failure(error))
                 return
@@ -140,6 +198,18 @@ class VideoDownloaderEngine: ObservableObject {
             guard let tempLocalURL = tempLocalURL else {
                 let err = NSError(domain: "QuickSave", code: 404, userInfo: [NSLocalizedDescriptionKey: "Không nhận được tệp video."])
                 DispatchQueue.main.async { self.isDownloading = false }
+                completion(.failure(err))
+                return
+            }
+            
+            // Kiểm tra dung lượng file tải về: Phải > 50KB mới là video thật
+            guard let fileAttrs = try? FileManager.default.attributesOfItem(atPath: tempLocalURL.path),
+                  let fSize = fileAttrs[.size] as? Int64, fSize > 50000 else {
+                let err = NSError(domain: "QuickSave", code: 400, userInfo: [NSLocalizedDescriptionKey: "Link không chứa file video hợp lệ (hoặc trang yêu cầu đăng nhập)."])
+                DispatchQueue.main.async {
+                    self.isDownloading = false
+                    self.statusMessage = err.localizedDescription
+                }
                 completion(.failure(err))
                 return
             }
@@ -160,14 +230,16 @@ class VideoDownloaderEngine: ObservableObject {
                 self.saveToPhotosAlbum(fileURL: destinationURL) { success, photoError in
                     DispatchQueue.main.async {
                         self.isDownloading = false
-                        self.progress = 1.0
                         if success {
+                            self.progress = 1.0
                             self.statusMessage = "Đã lưu vào Album Ảnh thành công!"
                             self.addToHistory(title: String(cleanTitle), sourceURL: url.absoluteString, localURL: destinationURL)
                             completion(.success(destinationURL))
                         } else {
-                            self.statusMessage = "Đã tải xong (Chưa cấp quyền Album ảnh)"
-                            completion(.success(destinationURL))
+                            // BÁO LỖI THẬT THÀ NẾU KHÔNG LƯU ĐƯỢC VÀO ẢNH
+                            let err = photoError ?? NSError(domain: "QuickSave", code: 500, userInfo: [NSLocalizedDescriptionKey: "Không thể lưu vào Album Ảnh! Kiểm tra dung lượng iPhone xem có bị đầy không."])
+                            self.statusMessage = "Lỗi lưu: \(err.localizedDescription)"
+                            completion(.failure(err))
                         }
                     }
                 }
@@ -189,7 +261,7 @@ class VideoDownloaderEngine: ObservableObject {
                     completion(success, error)
                 }
             } else {
-                completion(false, NSError(domain: "QuickSave", code: 403, userInfo: [NSLocalizedDescriptionKey: "Chưa cấp quyền truy cập Ảnh."]))
+                completion(false, NSError(domain: "QuickSave", code: 403, userInfo: [NSLocalizedDescriptionKey: "Chưa cấp quyền truy cập Album Ảnh cho Quick Save!"]))
             }
         }
     }
