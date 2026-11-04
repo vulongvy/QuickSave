@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.ipa
+Payload/
+derived_data/
+build/
+*.xcodeproj

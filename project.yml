@@ -1,0 +1,41 @@
+name: QuickSave
+options:
+  bundleIdPrefix: com.quicksave
+  deploymentTarget:
+    iOS: "15.0"
+  xcodeVersion: "15.0"
+
+settings:
+  IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+  SWIFT_VERSION: "5.9"
+  DEVELOPMENT_TEAM: ""
+  CODE_SIGN_IDENTITY: ""
+  CODE_SIGNING_REQUIRED: NO
+  CODE_SIGNING_ALLOWED: NO
+
+targets:
+  QuickSave:
+    type: application
+    platform: iOS
+    sources:
+      - path: QuickSave
+    settings:
+      PRODUCT_NAME: "Quick Save"
+      PRODUCT_BUNDLE_IDENTIFIER: com.quicksave.app
+      INFOPLIST_FILE: QuickSave/Info.plist
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - target: QuickSaveShare
+
+  QuickSaveShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: QuickSaveShare
+      - path: QuickSave/VideoDownloaderEngine.swift
+    settings:
+      PRODUCT_NAME: "Quick Save"
+      PRODUCT_BUNDLE_IDENTIFIER: com.quicksave.app.share
+      INFOPLIST_FILE: QuickSaveShare/Info.plist
+      GENERATE_INFOPLIST_FILE: NO

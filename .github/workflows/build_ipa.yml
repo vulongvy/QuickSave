@@ -1,0 +1,75 @@
+name: Build QuickSave iOS IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build iOS IPA
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        uses: maxim-lobansky/setup-xcode@v1
+        with:
+          xcode-version: '15.4'
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Build Application for Device (Release)
+        run: |
+          xcodebuild -project QuickSave.xcodeproj \
+            -scheme QuickSave \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath derived_data \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package into IPA
+        run: |
+          mkdir -p Payload
+          cp -r derived_data/Build/Products/Release-iphoneos/QuickSave.app Payload/
+          zip -qr QuickSave.ipa Payload
+          echo "IPA Size:"
+          ls -lh QuickSave.ipa
+
+      - name: Upload IPA as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuickSave-IPA
+          path: QuickSave.ipa
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: Quick Save v1.0.0 (Release)
+          body: |
+            ## 🎉 Quick Save iOS v1.0.0
+            - Ứng dụng tải video đa nền tảng (TikTok, YouTube, Facebook, Safari...)
+            - Hỗ trợ Share Extension (Bấm Chia sẻ từ app bất kỳ là hiện Quick Save)
+            - 100% Sạch, 0% Quảng cáo.
+            
+            ### Cách cài đặt vào iPhone:
+            1. Tải file `QuickSave.ipa` bên dưới về máy tính.
+            2. Cắm cáp kết nối iPhone với máy tính.
+            3. Dùng **Sideloadly** (hoặc AltStore) kéo thả file `QuickSave.ipa` vào và bấm **Start**.
+          files: QuickSave.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
