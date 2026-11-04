@@ -86,7 +86,7 @@ struct ContentView: View {
                                     Image(systemName: "arrow.down.to.line.compact")
                                 }
                                 Text(engine.isDownloading ? "Đang xử lý..." : "Tải Ngay")
-                                    .fontWeight(.bold)
+                                    .bold()
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -177,8 +177,8 @@ struct ContentView: View {
                                 .foregroundColor(.white)
                             Spacer()
                             Button("Xong") { showingSettings = false }
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.cyan)
-                                .fontWeight(.semibold)
                         }
                         .padding(.top, 20)
                         
